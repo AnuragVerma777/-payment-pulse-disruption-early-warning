@@ -1,80 +1,100 @@
-# Payment Pulse: Merchant Payment Disruption Early Warning
+# Payment Pulse — Payment Disruption Early Warning
 
-Payment Pulse is a guided Jupyter notebook prototype for the IBM Z Datathon theme **Real-Time AI for Critical Decisions**. It reads transaction records from CSV, groups them into short city/hour windows, forecasts expected activity with XGBoost, and flags unusual patterns with Isolation Forest for an operator to review.
+**IBM Z Datathon theme:** Real-Time AI for Critical Decisions  
+**Team:** Anurag Katariya · Kanishka Agarwal (Team Lead) · Dhruvi Thakkar · Ayush Kumar Raunak
 
-The notebook has been run on IBM LinuxONE Community Cloud (L1CC) in the supplied s390x JupyterLab environment. The current demo replays a historical CSV; it is not connected to a live payment stream. The dataset has no verified outage labels, so the notebook injects synthetic disruption scenarios to demonstrate evaluation and alerting.
+Payment Pulse is an AI-assisted operational monitoring prototype. It analyzes transaction activity in area/time windows, forecasts expected payment volume, and flags unusual changes so an operator can investigate quickly.
 
-## Workflow
+> This notebook replays historical transaction data. It is not connected to a live payment stream. The disruption evaluation uses injected scenarios because this dataset has no independently verified outage labels. Alerts are operational signals for human review; they do not confirm outages, detect fraud, or block/reroute payments.
 
-![Payment Pulse input-to-output workflow](assets/payment-pulse-transaction-flow.png)
+## L1CC execution evidence
 
-Transaction rows become city/hour windows. The models produce a forecast and anomaly signal. An alert asks a human operator to review, monitor, or escalate; the notebook does not block or reroute payments.
+The main notebook was run in JupyterLab on IBM LinuxONE Community Cloud (L1CC). The screenshot shows the Payment Pulse notebook open on the L1CC-hosted JupyterLab instance while the model-training section is in view.
 
-## Graphs and analysis
+![Payment Pulse notebook running in L1CC JupyterLab](assets/l1cc-payment-pulse-run.png)
 
-When run, the notebook generates these charts from the selected CSV:
+## Decision-support flow
 
-| Chart | What it shows |
+![CSV input, representative sampling, feature aggregation, and operator-facing alert flow](assets/step3-aggregation-flow.png)
+
+1. Load the included sampled transaction CSV and check its required columns.
+2. Sample across the file, then aggregate transactions into area/time windows.
+3. Train an XGBoost forecaster and an Isolation Forest anomaly detector.
+4. Evaluate on a chronological holdout and injected scenarios; plot results and show an operator-facing alert/replay.
+5. An operator reviews the signal and decides whether to monitor or escalate.
+
+## Dataset and analysis
+
+- `payment_pulse_synthetic_29mb.csv` is a **29.0 MB** uniformly sampled copy (313,343 transaction rows, 15 columns) of the original 345,000-row CSV. The original source is not included.
+- The notebook samples up to 150,000 rows uniformly across the available file, then derives area/time features such as event count, error rate, distinct-card count, and amount statistics.
+- `Is Fraud?` is deliberately excluded from model features and operational decisioning.
+- XGBoost forecasts next-window event volume. Isolation Forest scores multivariate deviations in volume, error rate, card count, and transaction amount statistics.
+- The chronological split is 70% training, 10% threshold calibration, and 20% final holdout.
+- The notebook reports volume MAE and precision, recall, and F1 for **injected synthetic disruption scenarios only**. These are demonstration metrics, not measured real-world outage-detection performance.
+- On this dataset, the notebook may aggregate at a coarser state/day resolution when city/hour windows are too sparse. That reduces time resolution and should be disclosed in a demo.
+
+The notebook generates data profiles, area-volume comparisons, observed-versus-forecast plots, operational alert charts, and scenario evaluation figures. The `assets/` folder contains the three explanatory illustrations used in its first sections.
+
+## Main project files
+
+| File | Purpose |
 | --- | --- |
-| Hourly volume and error distributions | Historical transaction counts and recorded errors by city/hour window. |
-| Top 10 areas by transaction volume | The busiest city/state areas in the loaded sample. |
-| Observed versus forecast activity | Actual and XGBoost forecast volume over time, with alert windows marked. |
-| Operational error signals | Recorded error rates alongside the demo error-spike threshold. |
-| Synthetic incident-check confusion matrix | Alert classifications against injected disruption scenarios. |
+| `payment pulse 2.0.ipynb` | Main explained notebook: data loading, profiling, aggregation, model training, evaluation, graphs, replay, and optional Granite summary. |
+| `payment_pulse_synthetic_29mb.csv` | Smaller project dataset for upload and notebook execution. |
+| `assets/` | Notebook illustrations and L1CC run screenshot. |
+| `labs/` | Four completed IBM LinuxONE ML lab notebooks. |
 
-Values vary with the CSV and sample. The notebook also displays an overview graphic and the input-to-output diagram from `assets/`.
+## Four mandatory lab notebooks
 
-## Project files
+These reference labs are included separately from the original Payment Pulse project so reviewers can inspect both the required exercises and the team's distinct hackathon solution.
 
-- `Payment_Pulse_Disruption_Early_Warning.ipynb` — explanations, data loading and checks, model training, metrics, charts, replay example, and optional Granite summary.
-- `assets/payment-pulse-overview.png` — overview illustration.
-- `assets/payment-pulse-transaction-flow.png` — input-to-output workflow graphic.
-- `PaymentPulse_Notebook.zip` — notebook, README, and both image assets. The large CSV and credentials are excluded.
-- `card_transaction.v1.csv` — local input dataset, if present. Upload the required CSV to L1CC separately; it is not inside the ZIP.
+1. **Fraud LSTM (Keras/TensorFlow)** — sequence-based classification of credit-card transactions.
+2. **Client churn (Scikit-learn/PyTorch)** — transaction/customer analysis and churn prediction.
+3. **Digit classification (TensorFlow)** — MNIST image classification and model export to ONNX.
+4. **Loan approval demo** — predictive and generative AI workflow with document processing and retrieval-augmented generation.
 
-## Run on L1CC JupyterLab
+## L1CC and Docker workload
 
-The notebook has been run in the JupyterLab environment provided by the LinuxONE Community Cloud ML lab. You do not need to build or start another Docker container if the existing JupyterLab is running.
-
-1. Open the existing L1CC JupyterLab URL. If using an SSH tunnel, keep its PowerShell window open while using the browser. JupyterLab may request its token again after reconnecting.
-2. Upload and extract `PaymentPulse_Notebook.zip` into the JupyterLab home folder. For direct upload, put the notebook in the home folder beside the CSV and put both PNGs in an `assets` subfolder beside the notebook.
-3. Make `transactions_history.csv` available beside the notebook or at `~/shared/transactions_history.csv`. The notebook also checks for `card_transaction.v1.csv` beside itself.
-4. Open the notebook, choose **Kernel → Restart Kernel**, then **Run → Run All Cells**.
-
-The loader reads at most 150,000 rows by default to limit memory use. It prints the selected input path and loaded sample size near the start. Increase `SAMPLE_ROWS` only after checking available VM memory.
-
-## Docker and LinuxONE workload
-
-The current workload runs as a notebook inside the L1CC-provided Docker image for IBM Z/LinuxONE (`s390x`):
+The notebook ran in the LinuxONE Community Cloud ML lab's JupyterLab container, using the provided IBM Z / s390x image:
 
 ```text
 registry.linuxone.cloud.marist.edu/l1cc/jupyterlab-image-s390x:latest
 ```
 
-The lab configuration uses a container named `notebook`, the VM's host network, and a shared-folder mount from `/home/linux1/shared` on the VM to `/home/ibm-user/shared` in the container. JupyterLab uses port `38888`; this project was accessed through an SSH tunnel. The image includes common ML libraries used by the notebook, including pandas, scikit-learn, and XGBoost.
+The lab container is named `notebook`, uses host networking, mounts `/home/linux1/shared` into JupyterLab's `shared` folder, and serves JupyterLab on TCP port `38888`. The lab documents this deployment in the [official JupyterLab ML repository](https://github.com/linuxone-community-cloud/jupyter-lab-ml). The VM is accessed with SSH key authentication; JupyterLab uses its configured token authentication.
 
-To inspect the already-running lab container from an SSH shell on the VM:
+This is a containerized notebook workload on LinuxONE. The project does not include a custom Payment Pulse Docker image or standalone scoring API. No Telum AI accelerator use or production-grade security assessment is claimed.
 
-```bash
-docker ps --filter name=notebook
-docker logs --tail 50 notebook
+### Run the notebook
+
+1. Start the L1CC JupyterLab container using the official lab instructions.
+2. Upload `payment pulse 2.0.ipynb`, `payment_pulse_synthetic_29mb.csv`, and the `assets/` folder (preserve the folder structure). Alternatively, place the CSV in the mounted `shared/` directory.
+3. Open the notebook, select **Kernel → Restart Kernel**, then **Run → Run All Cells**.
+4. Review the printed dataset path and row counts, holdout metrics, plots, and replay alerts. If optional Granite credentials are unavailable, skip that cell's prompts.
+
+## Security and responsible use
+
+- The repository excludes SSH private keys (`.pem`/`.key`) and environment files. Never upload credentials or Jupyter tokens.
+- Use SSH key authentication for VM administration and the lab's Jupyter token for notebook access. Do not publish either secret.
+- The notebook omits the fraud label and surfaces aggregate operational signals for human review. It does not make individual consumer decisions or take automatic payment actions.
+- The supplied lab container uses host networking and a writable shared folder for the lab workflow. This is not a hardened production deployment; do not expose it beyond the intended lab access controls.
+- The optional Granite summary is not required for the core workflow and must receive aggregate summaries only. The notebook does not require an IBM Cloud API key to run the main pipeline.
+
+## Repository layout
+
+```text
+.
+├── README.md
+├── payment pulse 2.0.ipynb
+├── payment_pulse_synthetic_29mb.csv
+├── assets/
+│   ├── l1cc-payment-pulse-run.png
+│   ├── step1-data-loading.png
+│   ├── step2-data-profile.png
+│   └── step3-aggregation-flow.png
+└── labs/
+    ├── Churn_Scikit_PyTorch.ipynb
+    ├── Digit_Class_TensorFlow.ipynb
+    ├── Fraud_LSTM_Keras_TF.ipynb
+    └── Loan_Approval_Demo.ipynb
 ```
-
-This is a containerized **notebook workload**. There is no custom Payment Pulse Dockerfile or standalone scoring API in this project folder. A separate service image would be additional work if the judging panel requires an independently deployed application container.
-
-The notebook runs on CPU with a bounded 150,000-row sample. It trains an XGBoost volume forecaster (histogram tree method, 120 estimators, depth 4) and a 120-estimator Isolation Forest over city/hour features. It reports holdout volume MAE and synthetic-scenario precision, recall, and F1.
-
-## Security design and operational limits
-
-- Access JupyterLab through the L1CC SSH tunnel and retain token authentication. Do not publish or share the token.
-- Never commit or upload private SSH `.pem` keys, IBM Cloud API keys, or watsonx.ai project IDs. `.gitignore` excludes `.pem`, `.key`, and CSV files; still verify files before sharing an archive.
-- The notebook drops the `Is Fraud?` label and scores aggregated city/hour operating signals, rather than making person-level fraud decisions.
-- The optional Granite call receives aggregate summary metrics only. It is not required to run analysis; press Enter at both credential prompts to skip it. Do not paste the SSH key into these prompts.
-- The prebuilt lab container uses host networking and a writable shared-folder mount for the lab workflow. These are lab settings, not a hardened production deployment. For a separate hardened container, use a non-root user, read-only data mount, resource limits, minimal network exposure, and secrets injected at runtime rather than stored in the image.
-- Alerts are human decision support. The model cannot confirm an outage or trigger an automatic payment action.
-
-## Metrics and L1CC run evidence
-
-Precision, recall, and F1 are calculated against injected synthetic disruption scenarios only; they are not real-world outage performance. Reliable outage evaluation requires independently verified incident timestamps.
-
-The project author reports a successful run on L1CC. A screenshot showing the completed Payment Pulse notebook with generated charts is still needed as visual evidence. Add it as `assets/l1cc-payment-pulse-run.png` and embed it here before submission. The screenshots currently available show setup or optional-credential errors, so they are not presented as successful-run proof.

@@ -4,4 +4,8 @@ __pycache__/
 .ipynb_checkpoints/
 *.pem
 *.key
+.env
+.env.*
+*.zip
 *.csv
+!/payment_pulse_synthetic_29mb.csv
