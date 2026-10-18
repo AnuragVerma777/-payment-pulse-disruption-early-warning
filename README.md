@@ -1,7 +1,7 @@
 # Payment Pulse — Payment Disruption Early Warning
 
 **IBM Z Datathon theme:** Real-Time AI for Critical Decisions  
-**Team:** Anurag Katariya · Kanishka Agarwal (Team Lead) · Dhruvi Thakkar · Ayush Kumar Raunak
+**Team:** Anurag Katariya · Kanishka Agarwal · Dhruvi Thakkar · Ayush Kumar Raunak
 
 Payment Pulse is an AI-assisted operational monitoring prototype. It analyzes transaction activity in area/time windows, forecasts expected payment volume, and flags unusual changes so an operator can investigate quickly.
 
